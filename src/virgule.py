@@ -66,7 +66,29 @@ def stats(data, nom_colonne):
     max = pc.max(list)
     return count, countd, sum, min, max
     
+def infos_villes (nom_ville):
+    # Récupération des informations pour une ville données
+    # Passer par un dataframe ain d'avoir les informations en fonction des lignes
+    df = table_to_df(villes_tb)
+    infos = df.loc[df['nom'] == nom_ville]
+    return infos
+
+def infos_dep (num_dep):
+    #Récupération des données informations pour un département 
     
+    # Trie des départements par ordre croissants 
+    sorted_indices = pc.sort_indices(villes_tb['dep'])
+    villes_tb.take(sorted_indices)
+    df = table_to_df(villes_tb)
+    
+    # Récupération des données d'un département
+    datas = df.loc[df['dep'] == num_dep]
+    
+    # Trie des villes par ordre croissant
+    df_sorted = datas.sort_values(by='nom')
+    return df_sorted
+
+
 ################## TEST ################
 '''print("Dataframe des villes -----------------------------------")
 print(villes)
@@ -114,3 +136,9 @@ count, countd, sum, min, max = stats(villes_tb, "nb_hab_2010")
 print(f"Statistiques pour villes avec la colonne nb_hab_2010 : count = {count}; countd = {countd}; sum = {sum}; min = {min}; max = {max}")
 count, countd, sum, min, max = stats(villes_tb, "nb_hab_2012")
 print(f"Statistiques pour villes avec la colonne nb_hab_2012 : count = {count}; countd = {countd}; sum = {sum}; min = {min}; max = {max}")'''
+
+'''print("Test des récupérations des informations ------------------------")
+infos_annecy = infos_villes("Annecy")
+print(f"Information concernant la ville d'Annecy : {infos_annecy}")
+info_74 = infos_dep("74")
+print(f"Information concernant le département de la Haute Savoie : {info_74}")'''
