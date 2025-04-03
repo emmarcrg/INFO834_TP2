@@ -38,9 +38,13 @@ def parquet_to_table(parquet_filename):
     table = pq.read_table(parquet_filename)
     return table
 
-villes_df = df_to_table(villes)
-academies_df = df_to_table(academies)
+villes_tb = df_to_table(villes)
+academies_tb = df_to_table(academies)
 
+def get_schema (data):
+    # Récupérer le schéma des tables
+    if isinstance(data, pa.Table) :
+        return data.schema
 
 ################## TEST ################
 '''print("Dataframe des villes -----------------------------------")
@@ -71,3 +75,9 @@ print("Passage en parquet et vérification")
 data_further = table_to_parquet(data, "academies.parquet")
 data_further = parquet_to_table("academies.parquet")
 print(data_further)'''
+
+print("Test des schémas des tables ------------------------")
+print("Schéma pour les données des villes : ")
+print(get_schema(villes_tb))
+print("Schéma pour les données des académies")
+print(get_schema(academies_tb))
