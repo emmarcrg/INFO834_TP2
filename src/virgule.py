@@ -45,7 +45,16 @@ def get_schema (data):
     # Récupérer le schéma des tables
     if isinstance(data, pa.Table) :
         return data.schema
-
+    
+def get_colonne (data, nom_colonne):
+    # Retourner les données des colonnes
+    if isinstance(data, pa.Table) :
+        return data.column(nom_colonne)
+    '''
+    En utilisant select, nous aurions eu : table.select(0) avec 0 étant l'indice de la colonne que nous souhaitions sélectionnée
+    '''
+    
+    
 ################## TEST ################
 '''print("Dataframe des villes -----------------------------------")
 print(villes)
@@ -76,8 +85,14 @@ data_further = table_to_parquet(data, "academies.parquet")
 data_further = parquet_to_table("academies.parquet")
 print(data_further)'''
 
-print("Test des schémas des tables ------------------------")
+'''print("Test des schémas des tables ------------------------")
 print("Schéma pour les données des villes : ")
 print(get_schema(villes_tb))
 print("Schéma pour les données des académies")
-print(get_schema(academies_tb))
+print(get_schema(academies_tb))'''
+
+'''print("Test de la récupération de colonne ------------------------")
+print("Récupération de la colonne dep de ville : ")
+print(get_colonne(villes_tb, "dep"))
+print("Récupération de la colonne vacances d'academies : ")
+print(get_colonne(academies_tb, "vacances"))'''
