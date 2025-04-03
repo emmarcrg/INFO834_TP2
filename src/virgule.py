@@ -2,7 +2,7 @@ import pyarrow.compute as pc
 import pyarrow.parquet as pq
 import pyarrow as pa
 import pandas as pd
-import matplotlib as plt
+import matplotlib.pyplot as plt
 
 def recup_data (filename) :
     # Récupération des données des fichiers csv 
@@ -12,7 +12,6 @@ def recup_data (filename) :
     
 villes = recup_data("./data/villes_virgule.csv")
 academies = recup_data("./data/academies_virgule.csv")
-
 
 # 1. Convertir les données d'un format à un autre
 def df_to_table(data):
@@ -41,11 +40,13 @@ def parquet_to_table(parquet_filename):
 villes_tb = df_to_table(villes)
 academies_tb = df_to_table(academies)
 
+# 2. Le schéma 
 def get_schema (data):
     # Récupérer le schéma des tables
     if isinstance(data, pa.Table) :
         return data.schema
-    
+
+# 3. Récupérer une colonne
 def get_colonne (data, nom_colonne):
     # Retourner les données des colonnes; il est supposer que la colonne fait bien partie de la table choisie 
     if isinstance(data, pa.Table) :
@@ -54,6 +55,7 @@ def get_colonne (data, nom_colonne):
     En utilisant select, nous aurions eu : table.select(0) avec 0 étant l'indice de la colonne que nous souhaitions sélectionnée
     '''
 
+# 4. Obtenir les statistiques
 def stats(data, nom_colonne):
     # Effectuer count, count_distinct, sum, min, max d'un certain tableau
     col = get_colonne(data, nom_colonne)
@@ -65,7 +67,8 @@ def stats(data, nom_colonne):
     min = pc.min(list)
     max = pc.max(list)
     return count, countd, sum, min, max
-    
+
+#5. Informations sur les villes et départements
 def infos_villes (nom_ville):
     # Récupération des informations pour une ville données
     # Passer par un dataframe ain d'avoir les informations en fonction des lignes
@@ -73,20 +76,85 @@ def infos_villes (nom_ville):
     infos = df.loc[df['nom'] == nom_ville]
     return infos
 
-def infos_dep (num_dep):
+def infos_dep (data, num_dep):
     #Récupération des données informations pour un département 
     
     # Trie des départements par ordre croissants 
-    sorted_indices = pc.sort_indices(villes_tb['dep'])
-    villes_tb.take(sorted_indices)
-    df = table_to_df(villes_tb)
+    sorted_indices = pc.sort_indices(data['dep'])
+    data.take(sorted_indices)
+    #On sélectionne le département 
+    condition = pc.equal(data['dep'], num_dep)
+    data = data.filter(condition)
+    # Trie des départements par ordre alphabétique 
+    sorted_indices = pc.sort_indices(data['nom'])
+    data.take(sorted_indices)
+    return data
+
+# 6. Agrégats
+def agregats (num_dep):
+    # Récupération des moyennes
+    # Moyenne pour un département donner en paramètre 
+    villes_triee = infos_dep(villes_tb, num_dep)
+    mean_2012 = pa.TableGroupBy(villes_triee,"dep").aggregate([("nb_hab_2012", "mean")])
+
+    # Moyenne du nombre d'habitant en fonction du département 
+    mean_hab_dep = pa.TableGroupBy(villes_tb,"dep").aggregate([("nb_hab_2012", "mean")])
+    return mean_2012, mean_hab_dep  
+
+#7. Jointures 
+def jointures():
+    # Affichage des données suivantes : 
+    # Zones de vacances des villes, 
+    combined_1 = villes_tb.join(academies_tb, 'dep')
+    combined_1 = combined_1.drop([
+                        'cp', 'nb_hab_2010','nb_hab_1999',
+                        'nb_hab_2012', 'dens', 'surf', 'long',  'lat',
+                        'alt_min', 'alt_max', 'wikipedia', 'departement',
+                        'region'])
     
-    # Récupération des données d'un département
-    datas = df.loc[df['dep'] == num_dep]
+    # Les villes de la zone de  vacances A 
+    temp = combined_1
+    condition = pc.equal(temp['vacances'], "Zone A")
+    combined_2 = temp.filter(condition)
     
-    # Trie des villes par ordre croissant
-    df_sorted = datas.sort_values(by='nom')
-    return df_sorted
+    # les départements des zones de vacances A et B 
+    temp = combined_1
+    condition1 = pc.equal(temp['vacances'], "Zone A")
+    condition2 = pc.equal(temp['vacances'], "Zone B")
+    combined_condition = pc.or_(condition1, condition2)
+
+    combined_3 = temp.filter(combined_condition)
+    
+    # le nombre de villes par académie 
+    temp = combined_1
+    combined_4 = pa.TableGroupBy(temp,"academie").aggregate([("nom", "count")])
+    
+    return combined_1, combined_2, combined_3, combined_4
+
+c1, c2, c3, c4 = jointures()
+
+def histogramme() : 
+    sort = pc.sort_indices(c4['nom_count'])
+    c4.take(sort)
+    data = table_to_df(c4)
+    
+    
+    # Supprimer les valeurs nulles
+    data = data.dropna()
+
+    # Extraire les colonnes
+    x = data['academie']
+    y = data['nom_count']    
+    
+    plt.bar(x, y, edgecolor='black')
+
+    # Ajouter un titre et des étiquettes
+    plt.title("Histogramme du nombre de villes en fonction de l'académie")
+    plt.xlabel('Académies')
+    plt.ylabel('Nombre de villes')
+
+    # Afficher l'histogramme
+    plt.show()
 
 
 ################## TEST ################
@@ -137,8 +205,25 @@ print(f"Statistiques pour villes avec la colonne nb_hab_2010 : count = {count}; 
 count, countd, sum, min, max = stats(villes_tb, "nb_hab_2012")
 print(f"Statistiques pour villes avec la colonne nb_hab_2012 : count = {count}; countd = {countd}; sum = {sum}; min = {min}; max = {max}")'''
 
+
 '''print("Test des récupérations des informations ------------------------")
 infos_annecy = infos_villes("Annecy")
 print(f"Information concernant la ville d'Annecy : {infos_annecy}")
-info_74 = infos_dep("74")
+info_74 = infos_dep(villes_tb, "74")
 print(f"Information concernant le département de la Haute Savoie : {info_74}")'''
+
+'''print("Test des agrégats ------------------------")
+mean_2012, mean_hab = agregats("74")
+print(f"Moyenne des habitants en 2012 pour la Haute Savoie = {mean_2012}, moyenne des habitants par départements = {mean_hab}")'''
+
+'''print("Test des jointures ------------------------")
+print("Résultats des zones de vacances de chacunes des villes : ")
+print(c1)
+print("Résultats des villes de la zone A : ")
+print(c2)
+print("Résultats des départements de la zone A & B : ")
+print(c3)
+print("Résultats du nombre de villes par académie : ")
+print(c4)'''
+
+#histogramme()
