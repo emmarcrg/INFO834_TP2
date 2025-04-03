@@ -47,12 +47,24 @@ def get_schema (data):
         return data.schema
     
 def get_colonne (data, nom_colonne):
-    # Retourner les données des colonnes
+    # Retourner les données des colonnes; il est supposer que la colonne fait bien partie de la table choisie 
     if isinstance(data, pa.Table) :
         return data.column(nom_colonne)
     '''
     En utilisant select, nous aurions eu : table.select(0) avec 0 étant l'indice de la colonne que nous souhaitions sélectionnée
     '''
+
+def stats(data, nom_colonne):
+    # Effectuer count, count_distinct, sum, min, max d'un certain tableau
+    col = get_colonne(data, nom_colonne)
+    list = col.to_pylist()
+        
+    count = pc.count(list)
+    countd = pc.count_distinct(list)
+    sum = pc.sum(list)
+    min = pc.min(list)
+    max = pc.max(list)
+    return count, countd, sum, min, max
     
     
 ################## TEST ################
@@ -96,3 +108,9 @@ print("Récupération de la colonne dep de ville : ")
 print(get_colonne(villes_tb, "dep"))
 print("Récupération de la colonne vacances d'academies : ")
 print(get_colonne(academies_tb, "vacances"))'''
+
+'''print("Test des stats ------------------------")
+count, countd, sum, min, max = stats(villes_tb, "nb_hab_2010")
+print(f"Statistiques pour villes avec la colonne nb_hab_2010 : count = {count}; countd = {countd}; sum = {sum}; min = {min}; max = {max}")
+count, countd, sum, min, max = stats(villes_tb, "nb_hab_2012")
+print(f"Statistiques pour villes avec la colonne nb_hab_2012 : count = {count}; countd = {countd}; sum = {sum}; min = {min}; max = {max}")'''
