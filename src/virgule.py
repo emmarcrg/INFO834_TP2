@@ -14,6 +14,7 @@ villes = recup_data("./data/villes_virgule.csv")
 academies = recup_data("./data/academies_virgule.csv")
 
 # 1. Convertir les données d'un format à un autre
+# Dans la majorité des cas ici, une vérification du types des objets mis en paramètre a été rajoutée.
 def df_to_table(data):
     # écriture d'un dataframe à une table
     if isinstance(data, pd.DataFrame) :
@@ -44,14 +45,17 @@ academies_tb = df_to_table(academies)
 def get_schema (data):
     # Récupérer le schéma des tables
     if isinstance(data, pa.Table) :
+        # retourne le schéma d'une table
         return data.schema
 
 # 3. Récupérer une colonne
 def get_colonne (data, nom_colonne):
     # Retourner les données des colonnes; il est supposer que la colonne fait bien partie de la table choisie 
     if isinstance(data, pa.Table) :
+        # retourne l'ensemble des valeurs présente dans une colonne de ce nom
         return data.column(nom_colonne)
     '''
+    J'ai choisit de passer par le nom car je trouvais celui plus intuitif que en sélectionnant l'indice.
     En utilisant select, nous aurions eu : table.select(0) avec 0 étant l'indice de la colonne que nous souhaitions sélectionnée
     '''
 
@@ -60,7 +64,8 @@ def stats(data, nom_colonne):
     # Effectuer count, count_distinct, sum, min, max d'un certain tableau
     col = get_colonne(data, nom_colonne)
     list = col.to_pylist()
-        
+    
+    # Ensemble des statistiques demandées => dans la librairie compute de pyarrow
     count = pc.count(list)
     countd = pc.count_distinct(list)
     sum = pc.sum(list)
@@ -71,7 +76,7 @@ def stats(data, nom_colonne):
 #5. Informations sur les villes et départements
 def infos_villes (nom_ville):
     # Récupération des informations pour une ville données
-    # Passer par un dataframe ain d'avoir les informations en fonction des lignes
+    # Passer par un dataframe ain d'avoir les informations en fonction des lignes : semble plus simple dans ce cas ci
     df = table_to_df(villes_tb)
     infos = df.loc[df['nom'] == nom_ville]
     return infos
@@ -82,9 +87,12 @@ def infos_dep (data, num_dep):
     # Trie des départements par ordre croissants 
     sorted_indices = pc.sort_indices(data['dep'])
     data.take(sorted_indices)
-    #On sélectionne le département 
+    
+    # On sélectionne le département 
+    # Autre manière de sélectionner un élément, cette fois ci en passant par la table
     condition = pc.equal(data['dep'], num_dep)
     data = data.filter(condition)
+    
     # Trie des départements par ordre alphabétique 
     sorted_indices = pc.sort_indices(data['nom'])
     data.take(sorted_indices)
@@ -94,10 +102,12 @@ def infos_dep (data, num_dep):
 def agregats (num_dep):
     # Récupération des moyennes
     # Moyenne pour un département donner en paramètre 
+    # J'ai décidé d'utiliser l'attribut agregate dans lequel je lui donne la fonction effectuée
     villes_triee = infos_dep(villes_tb, num_dep)
     mean_2012 = pa.TableGroupBy(villes_triee,"dep").aggregate([("nb_hab_2012", "mean")])
 
     # Moyenne du nombre d'habitant en fonction du département 
+    # j'ai décidé de prendre le nombre d'habitant par département en 2012 de sorte à avoir des valeurs cohérentes
     mean_hab_dep = pa.TableGroupBy(villes_tb,"dep").aggregate([("nb_hab_2012", "mean")])
     return mean_2012, mean_hab_dep  
 
@@ -105,13 +115,16 @@ def agregats (num_dep):
 def jointures():
     # Affichage des données suivantes : 
     # Zones de vacances des villes, 
+    #Jointure de villes_tb et academies_tb par rapport à la colonne dep
     combined_1 = villes_tb.join(academies_tb, 'dep')
+    #Suppression des colonnes dont je n'ai pas besoin
     combined_1 = combined_1.drop([
                         'cp', 'nb_hab_2010','nb_hab_1999',
                         'nb_hab_2012', 'dens', 'surf', 'long',  'lat',
                         'alt_min', 'alt_max', 'wikipedia', 'departement',
                         'region'])
     
+    # Le reste des tableaux est donner en fonction de la première jointure et d'une sélection approfondie
     # Les villes de la zone de  vacances A 
     temp = combined_1
     condition = pc.equal(temp['vacances'], "Zone A")
@@ -133,11 +146,11 @@ def jointures():
 
 c1, c2, c3, c4 = jointures()
 
+# 9. Histogramme
 def histogramme() : 
     sort = pc.sort_indices(c4['nom_count'])
     c4.take(sort)
     data = table_to_df(c4)
-    
     
     # Supprimer les valeurs nulles
     data = data.dropna()
